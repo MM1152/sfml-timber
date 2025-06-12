@@ -5,6 +5,7 @@
 
 enum class Side {LEFT, RIGHT, NONE};
 
+
 sf::Vector2f windowSize;
 bool checkOutofWindow(sf::Sprite* sprite);
 void InitSprite(sf::Sprite* sprite, sf::Vector2f* dir , float* speed);
@@ -12,6 +13,8 @@ void spriteLeftStart(sf::Sprite* sprite, sf::Vector2f* dir);
 void spriteRightStart(sf::Sprite* sprite, sf::Vector2f* dir);
 void aroundMove(sf::Sprite* sprite , sf::Vector2f* dir);
 void flipX(sf::Sprite* sprite, float dirX);
+void updateBranch(Side* sprtie, int size);
+
 
 int main()
 {
@@ -22,12 +25,14 @@ int main()
 
     sf::RenderWindow window(sf::VideoMode(1920 , 1080), "Timber!"); // 화면에 뛰울 윈도우의 사이즈 / 제목
     windowSize = { (sf::Vector2f)window.getSize() };
+
     sf::Texture textureCloud;
     sf::Texture textureBee;
     sf::Texture textureTree;
     sf::Texture textureBackGround;
     sf::Texture texturePlayer;
     sf::Texture textureBranch;
+    sf::Texture textureAxe;
 
     textureCloud.loadFromFile(graphicsPath + "cloud.png");
     textureBee.loadFromFile(graphicsPath + "bee.png");
@@ -35,6 +40,7 @@ int main()
     textureBackGround.loadFromFile(graphicsPath + "background.png");
     texturePlayer.loadFromFile(graphicsPath + "player.png");
     textureBranch.loadFromFile(graphicsPath + "branch.png");
+    textureAxe.loadFromFile(graphicsPath + "axe.png");
 
     sf::Sprite moveAbleSprites[5];
     sf::Vector2f dir[5];
@@ -57,33 +63,39 @@ int main()
     sf::Sprite spriteBackGround;
     sf::Sprite spriteBranch[NUM_BRANCHES];
     sf::Sprite spriteTree;
+    sf::Sprite spriteAxe;
 
     spriteTree.setPosition(1920 * 0.5, 0);
-    spriteTree.setOrigin(textureTree.getSize().x * 0.5f, 0.f);
-
+    spriteTree.setOrigin(textureTree.getSize().x / 2, 0.f);
+    
     for (int i = 0; i < NUM_BRANCHES; i++)
     {
         spriteBranch[i].setTexture(textureBranch);
         spriteBranch[i].setOrigin(-(textureTree.getSize().x * 0.5)  , 0.f);
-        spriteBranch[i].setPosition(spriteTree.getPosition ().x , i * 150.f);
+        spriteBranch[i].setPosition(spriteTree.getPosition().x , i * 150.f);
     }
 
 
-
     sf::Sprite spritePlayer;
-    
     spriteBackGround.setTexture(textureBackGround);
     spriteTree.setTexture(textureTree);
     spritePlayer.setTexture(texturePlayer);
+    spriteAxe.setTexture(textureAxe);
+
     sf::Vector2u;
-    spritePlayer.setOrigin(-(int)(textureTree.getSize().x / 2), 0);
+    spritePlayer.setOrigin(-(int)textureTree.getSize().x/2, 0);
     spritePlayer.setPosition(spriteTree.getPosition().x, 700.f);
     Side palyerSide = Side::LEFT;
 
+    spriteAxe.setOrigin(-((int)texturePlayer.getSize().x * 0.2), 0.f);
+    spriteAxe.setPosition(spritePlayer.getPosition().x , spritePlayer.getPosition().y + 110.f);
+    Side axeSide = Side::LEFT;
 
     sf::Event event;
     sf::Clock clock;
     float timer = 0.f;
+    bool onClick = false;
+    bool isDie = false;
 
     Side sideBranch[NUM_BRANCHES] = { Side::LEFT,Side::RIGHT,Side::NONE,Side::RIGHT,Side::LEFT,Side::NONE};
     while (window.isOpen())
@@ -94,59 +106,89 @@ int main()
         // 메세지 루프 -> 큐에담긴 메세지가 존재하면 while 문은 true
         while (window.pollEvent(event))
         {
-            if (event.key.code == sf::Keyboard::Left) {
-                palyerSide = Side::LEFT;
-            }
-            else if (event.key.code == sf::Keyboard::Right) {
-                palyerSide = Side::RIGHT;
-            }
-            
             if (event.type == sf::Event::Closed) {
                 window.close();
             }
+            if (event.key.code == sf::Keyboard::Enter && isDie) {
+                isDie = false;
+            }
+            if (!isDie) {
+                if (event.KeyPressed == event.type && !onClick && (event.key.code == sf::Keyboard::Left || event.key.code == sf::Keyboard::Right)) {
+                    if (event.key.code == sf::Keyboard::Left) {
+                        palyerSide = Side::LEFT;
+                        axeSide = Side::LEFT;
+                    }
+                    else if (event.key.code == sf::Keyboard::Right) {
+                        palyerSide = Side::RIGHT;
+                        axeSide = Side::RIGHT;
+                    }
+                    updateBranch(sideBranch, NUM_BRANCHES);
+                    if (palyerSide == sideBranch[NUM_BRANCHES - 1]) {
+                        printf("아야\n");
+                        isDie = true;
+                    }
+                    onClick = true;
+                }
+                else if (event.KeyReleased == event.type) {
+                    onClick = false;
+                }
+            }
+
+          
         }
 
         //Update
-        for (int i = 0; i < sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]); i++) {
-            sf::Vector2f pos = moveAbleSprites[i].getPosition() + dir[i] * speed[i] * deltaTime;
-            moveAbleSprites[i].setPosition(pos);
-            if (checkOutofWindow(&moveAbleSprites[i]) && i != sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1) {
-                InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
-            }
-           
-            if (i == sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1 ) {
-                if (timer >= 2) {
-                    aroundMove(&moveAbleSprites[i], &dir[i]);
-                    timer = 0;
+        if (!isDie) {
+            for (int i = 0; i < sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]); i++) {
+                sf::Vector2f pos = moveAbleSprites[i].getPosition() + dir[i] * speed[i] * deltaTime;
+                moveAbleSprites[i].setPosition(pos);
+                if (checkOutofWindow(&moveAbleSprites[i]) && i != sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1) {
+                    InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
                 }
-                else if(checkOutofWindow(&moveAbleSprites[i])){
-                    dir[i].x =  - (dir[i].x);
-                    dir[i].y = - (dir[i].y);
-                    flipX(&moveAbleSprites[i] ,  dir[i].x);
-                    printf("[%f] [%f]\n", dir[i].x, dir[i].y);
-                }
-            }
-        }
 
-        for (int i = 0; i < NUM_BRANCHES; i++) {
-            switch (sideBranch[i]) {
+                if (i == sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1) {
+                    if (timer >= 2) {
+                        aroundMove(&moveAbleSprites[i], &dir[i]);
+                        timer = 0;
+                    }
+                    else if (checkOutofWindow(&moveAbleSprites[i])) {
+                        dir[i].x = -(dir[i].x);
+                        dir[i].y = -(dir[i].y);
+                        flipX(&moveAbleSprites[i], dir[i].x);
+                    }
+                }
+            }
+
+            for (int i = 0; i < NUM_BRANCHES; i++) {
+                switch (sideBranch[i]) {
                 case Side::LEFT:
-                    spriteBranch[i].setScale({ -1,1 });
+                        spriteBranch[i].setScale({ -1,1 });
+                        break;
+                    case Side::RIGHT:
+                        spriteBranch[i].setScale({ 1,1 });
+                        break;
+                    }
+                }
+
+                switch (palyerSide) {
+                case Side::LEFT:
+                    spritePlayer.setScale({ -1 , 1 });
                     break;
                 case Side::RIGHT:
-                    spriteBranch[i].setScale({ 1,1 });
+                    spritePlayer.setScale({ 1 , 1 });
                     break;
-            }
+                }
+                switch (axeSide) {
+                case Side::LEFT:
+                    spriteAxe.setScale({ -1 , 1 });
+                    break;
+                case Side::RIGHT:
+                    spriteAxe.setScale({ 1 , 1 });
+                    break;
+                }
         }
 
-        switch (palyerSide) {
-            case Side::LEFT:
-                spritePlayer.setScale({ -1 , 1 });
-                break;
-            case Side::RIGHT:
-                spritePlayer.setScale({ 1 , 1 });
-                break;
-        }
+
 
         //Draw
         window.clear();
@@ -157,6 +199,10 @@ int main()
             
         }
         window.draw(spritePlayer);
+        if (onClick) {
+            window.draw(spriteAxe);
+        }
+        
         for (sf::Sprite sp : moveAbleSprites) {
             window.draw(sp);
         }
@@ -209,6 +255,18 @@ void flipX(sf::Sprite* sprite, float dirX) {
     else {
         sprite->setScale({ 1 , 1 });
     }
+}
+
+void updateBranch(Side* side, int size)
+{
+    for (int i = size - 1; i >= 0; i--) {
+        side[i] = side[i - 1];
+    }
+
+    int r = rand() % 3;
+    if (r == 0) side[0] = Side::LEFT;
+    else if (r == 1) side[0] = Side::RIGHT;
+    else if (r == 2) side[0] = Side::NONE;
 }
 
 void aroundMove(sf::Sprite* sprite , sf::Vector2f* dir) {
