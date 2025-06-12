@@ -3,15 +3,15 @@
 #include <ctime>
 #include <cstdlib>
 
-#define MAX_HEIGHT(value) value + 30.f
-#define MIN_HEIGHT(value) value - 30.f
+enum class Side {LEFT, RIGHT, NONE};
 
 sf::Vector2f windowSize;
 bool checkOutofWindow(sf::Sprite* sprite);
 void InitSprite(sf::Sprite* sprite, sf::Vector2f* dir , float* speed);
 void spriteLeftStart(sf::Sprite* sprite, sf::Vector2f* dir);
 void spriteRightStart(sf::Sprite* sprite, sf::Vector2f* dir);
-void parabolaMove(sf::Sprite* sprite , sf::Vector2f* dir , float initHeight);
+void aroundMove(sf::Sprite* sprite , sf::Vector2f* dir);
+void flipX(sf::Sprite* sprite, float dirX);
 
 int main()
 {
@@ -26,125 +26,141 @@ int main()
     sf::Texture textureBee;
     sf::Texture textureTree;
     sf::Texture textureBackGround;
+    sf::Texture texturePlayer;
+    sf::Texture textureBranch;
 
     textureCloud.loadFromFile(graphicsPath + "cloud.png");
     textureBee.loadFromFile(graphicsPath + "bee.png");
     textureTree.loadFromFile(graphicsPath + "tree.png");
     textureBackGround.loadFromFile(graphicsPath + "background.png");
+    texturePlayer.loadFromFile(graphicsPath + "player.png");
+    textureBranch.loadFromFile(graphicsPath + "branch.png");
+
+    sf::Sprite moveAbleSprites[5];
+    sf::Vector2f dir[5];
+    float speed[5];
+    for (int i = 0; i < sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]); i++) {
+        if (i < 3) {
+            moveAbleSprites[i].setTexture(textureCloud);
+            moveAbleSprites[i].setPosition(textureCloud.getSize().x / 2, textureCloud.getSize().y * i);
+            InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
+        }
+        else {
+            moveAbleSprites[i].setTexture(textureBee);
+            moveAbleSprites[i].setPosition({ 400.f , 800.f });
+            InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
+        }
+        //moveAbleSprites[i].setOrigin(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2);
+     }
+    const int NUM_BRANCHES = 6;
 
     sf::Sprite spriteBackGround;
-    sf::Sprite spriteCloud1;
-    sf::Sprite spriteCloud2;
-    sf::Sprite spriteCloud3;
-    sf::Sprite spriteBee;
-    sf::Sprite spriteBee1;
+    sf::Sprite spriteBranch[NUM_BRANCHES];
     sf::Sprite spriteTree;
+
+    spriteTree.setPosition(1920 * 0.5, 0);
+    spriteTree.setOrigin(textureTree.getSize().x * 0.5f, 0.f);
+
+    for (int i = 0; i < NUM_BRANCHES; i++)
+    {
+        spriteBranch[i].setTexture(textureBranch);
+        spriteBranch[i].setOrigin(-(textureTree.getSize().x * 0.5)  , 0.f);
+        spriteBranch[i].setPosition(spriteTree.getPosition ().x , i * 150.f);
+    }
+
+
+
+    sf::Sprite spritePlayer;
     
     spriteBackGround.setTexture(textureBackGround);
-    spriteCloud1.setTexture(textureCloud);
-    spriteCloud2.setTexture(textureCloud);
-    spriteCloud3.setTexture(textureCloud);
     spriteTree.setTexture(textureTree);
-    spriteBee.setTexture(textureBee);
-    spriteBee1.setTexture(textureBee);
+    spritePlayer.setTexture(texturePlayer);
+    sf::Vector2u;
+    spritePlayer.setOrigin(-(int)(textureTree.getSize().x / 2), 0);
+    spritePlayer.setPosition(spriteTree.getPosition().x, 700.f);
+    Side palyerSide = Side::LEFT;
 
-    spriteTree.setPosition(1920 * 0.5 , 0);
-    spriteTree.setOrigin(textureTree.getSize().x * 0.5f, 0.f);
-    
-    spriteBee.setPosition(textureBee.getSize().x / 2, 1080 * 0.7 - textureBee.getSize().y / 2);
-    spriteBee.setOrigin(textureBee.getSize().x / 2, textureBee.getSize().y / 2);
-    spriteBee1.setPosition(textureBee.getSize().x / 2, 1080 * 0.7 - textureBee.getSize().y / 2);
-    spriteBee1.setOrigin(textureBee.getSize().x / 2, textureBee.getSize().y / 2);
-
-    sf::Vector2f beeDir = { 1.f , 0.f };
-    float beeSpeed = 500.f;
-    InitSprite(&spriteBee , &beeDir , &beeSpeed);
-    
-    sf::Vector2f bee1Dir = { 0.f , 0.f };
-    float bee1Speed = 500.f;
-    float bee1SpeedY = 30.f;
-    float bee1InitHeight = 0.f;
-    
-    InitSprite(&spriteBee1, &bee1Dir, &bee1Speed);
-    parabolaMove(&spriteBee1, &bee1Dir , bee1InitHeight);
-
-    bee1InitHeight = spriteBee1.getPosition().y;
-    spriteCloud1.setPosition(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2);
-    sf::Vector2f cloud1Dir = { 0,  0 };
-    float cloud1speed = 500.f;
-    InitSprite(&spriteCloud1, &cloud1Dir , &cloud1speed);
-
-    spriteCloud2.setPosition(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2 * 3);
-    sf::Vector2f cloud2Dir = { 0,  0 };
-    float cloud2speed = 500.f;
-    InitSprite(&spriteCloud2, &cloud2Dir, &cloud2speed);
-
-    spriteCloud3.setPosition(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2 * 5);
-    sf::Vector2f cloud3Dir = { 0,  0 };
-    float cloud3speed = 500.f;
-    InitSprite(&spriteCloud3, &cloud3Dir, &cloud3speed);
-
-    spriteCloud1.setOrigin(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2);
-    spriteCloud2.setOrigin(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2);
-    spriteCloud3.setOrigin(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2);
 
     sf::Event event;
     sf::Clock clock;
-   
+    float timer = 0.f;
 
-    
+    Side sideBranch[NUM_BRANCHES] = { Side::LEFT,Side::RIGHT,Side::NONE,Side::RIGHT,Side::LEFT,Side::NONE};
     while (window.isOpen())
     {   
         sf::Time time = clock.restart();
         float deltaTime = time.asSeconds();
-
+        timer += deltaTime;
         // 메세지 루프 -> 큐에담긴 메세지가 존재하면 while 문은 true
         while (window.pollEvent(event))
         {
-            if (event.type == sf::Event::Closed)
+            if (event.key.code == sf::Keyboard::Left) {
+                palyerSide = Side::LEFT;
+            }
+            else if (event.key.code == sf::Keyboard::Right) {
+                palyerSide = Side::RIGHT;
+            }
+            
+            if (event.type == sf::Event::Closed) {
                 window.close();
+            }
         }
 
         //Update
-        spriteBee.setPosition(spriteBee.getPosition() + beeDir * beeSpeed * deltaTime);
-        spriteBee1.setPosition(spriteBee1.getPosition().x + bee1Dir.x * beeSpeed * deltaTime , spriteBee1.getPosition().y + bee1Dir.y * bee1SpeedY * deltaTime);
-        parabolaMove(&spriteBee1, &bee1Dir , bee1InitHeight);
-        
-
-        spriteCloud1.setPosition(spriteCloud1.getPosition() + cloud1Dir * cloud1speed * deltaTime);
-        spriteCloud3.setPosition(spriteCloud3.getPosition() + cloud3Dir * cloud3speed * deltaTime);
-        spriteCloud2.setPosition(spriteCloud2.getPosition() + cloud2Dir * cloud2speed * deltaTime);
-
-        if (checkOutofWindow(&spriteBee)) 
-        {
-            InitSprite(&spriteBee , &beeDir, &beeSpeed);
-        }
-        if (checkOutofWindow(&spriteCloud1))
-        {
-            InitSprite(&spriteCloud1, &cloud1Dir, &cloud1speed);
-        }
-        if (checkOutofWindow(&spriteCloud2))
-        {
-            InitSprite(&spriteCloud2, &cloud2Dir , &cloud2speed);
-        }
-        if (checkOutofWindow(&spriteCloud3))
-        {
-            InitSprite(&spriteCloud3, &cloud3Dir , &cloud3speed);
-        }
-        if (checkOutofWindow(&spriteBee1)) {
-            InitSprite(&spriteBee1, &bee1Dir, &bee1Speed);
+        for (int i = 0; i < sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]); i++) {
+            sf::Vector2f pos = moveAbleSprites[i].getPosition() + dir[i] * speed[i] * deltaTime;
+            moveAbleSprites[i].setPosition(pos);
+            if (checkOutofWindow(&moveAbleSprites[i]) && i != sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1) {
+                InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
+            }
+           
+            if (i == sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1 ) {
+                if (timer >= 2) {
+                    aroundMove(&moveAbleSprites[i], &dir[i]);
+                    timer = 0;
+                }
+                else if(checkOutofWindow(&moveAbleSprites[i])){
+                    dir[i].x =  - (dir[i].x);
+                    dir[i].y = - (dir[i].y);
+                    flipX(&moveAbleSprites[i] ,  dir[i].x);
+                    printf("[%f] [%f]\n", dir[i].x, dir[i].y);
+                }
+            }
         }
 
-        
+        for (int i = 0; i < NUM_BRANCHES; i++) {
+            switch (sideBranch[i]) {
+                case Side::LEFT:
+                    spriteBranch[i].setScale({ -1,1 });
+                    break;
+                case Side::RIGHT:
+                    spriteBranch[i].setScale({ 1,1 });
+                    break;
+            }
+        }
+
+        switch (palyerSide) {
+            case Side::LEFT:
+                spritePlayer.setScale({ -1 , 1 });
+                break;
+            case Side::RIGHT:
+                spritePlayer.setScale({ 1 , 1 });
+                break;
+        }
 
         //Draw
         window.clear();
         window.draw(spriteBackGround);
-        window.draw(spriteCloud1);
-        window.draw(spriteCloud2);
-        window.draw(spriteCloud3);
         window.draw(spriteTree);
-        window.draw(spriteBee1);
+        for (int i = 0; i < NUM_BRANCHES; i++) {
+            if(sideBranch[i] != Side::NONE) window.draw(spriteBranch[i]);
+            
+        }
+        window.draw(spritePlayer);
+        for (sf::Sprite sp : moveAbleSprites) {
+            window.draw(sp);
+        }
+        
        // window.draw(spriteBee);
         window.display();
     }
@@ -155,6 +171,9 @@ int main()
 
 bool checkOutofWindow(sf::Sprite* sprite) {
     if (sprite->getPosition().x >= windowSize.x + 100.f || sprite->getPosition().x < 0 - 100.f) {
+        return true;
+    }
+    if (sprite->getPosition().y >= windowSize.y || sprite->getPosition().y < 0) {
         return true;
     }
     return false;
@@ -183,20 +202,21 @@ void spriteRightStart(sf::Sprite* sprite, sf::Vector2f* dir) {
     *dir = { -1.f , 0.f };
 }
 
-void parabolaMove(sf::Sprite* sprite , sf::Vector2f* dir , float initHeight) {
-    if (dir->y == 0) 
-    {
-        *dir = { dir->x , 1.f };
-        return;
+void flipX(sf::Sprite* sprite, float dirX) {
+    if (dirX > 0) {
+        sprite->setScale({-1 , 1});
     }
-    printf("pos : %f\n", sprite->getPosition().y);
-    printf("maxHeight : %f\n", MAX_HEIGHT(initHeight));
-    if (sprite->getPosition().y >= MAX_HEIGHT(initHeight))
-    {
-        *dir = { dir->x , -1.f };
+    else {
+        sprite->setScale({ 1 , 1 });
     }
-    if (sprite->getPosition().y <= MIN_HEIGHT(initHeight))
-    {
-        *dir = { dir->x , 1.f };
-    }
+}
+
+void aroundMove(sf::Sprite* sprite , sf::Vector2f* dir) {
+    if (checkOutofWindow(sprite)) return;
+
+    printf("%f\n", rand() / (RAND_MAX * 0.5f) - 1);
+    dir->x = rand() / (RAND_MAX * 0.5f) - 1;
+    dir->y = rand() / (RAND_MAX * 0.5f) - 1;
+    
+    flipX(sprite, dir->x);
 }
