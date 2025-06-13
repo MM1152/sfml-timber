@@ -159,8 +159,6 @@ Vector2<T> operator -(const Vector2<T>& left, const Vector2<T>& right);
 template <typename T>
 Vector2<T> operator *(const Vector2<T>& left, T right);
 
-template<typename T>
-Vector2<T> operator *(const Vector2<T>& left, const Vector2<T>& right);
 ////////////////////////////////////////////////////////////
 /// \relates Vector2
 /// \brief Overload of binary operator *
