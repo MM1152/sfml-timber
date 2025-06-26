@@ -1,467 +1,349 @@
+
 #include <SFML/Graphics.hpp>
-#include <iostream>
-#include <ctime>
-#include <cstdlib>
-#include <SFML/Audio.hpp>
-
-enum class Side {LEFT, RIGHT, NONE};
-enum class GAMESTATUS { START , RESUME , RESTART};
-
+#include <stdlib.h>
+#include <time.h>
+#define NUM_BRANCHS 6
+#define NUM_LOGS 10
+#define TIMTER_SIZE_WIDTH 500
+#define TIMER_SIZE_HEIGHT 100
 sf::Vector2f windowSize;
-bool checkOutofWindow(sf::Sprite* sprite);
-void InitSprite(sf::Sprite* sprite, sf::Vector2f* dir , float* speed);
-void spriteLeftStart(sf::Sprite* sprite, sf::Vector2f* dir);
-void spriteRightStart(sf::Sprite* sprite, sf::Vector2f* dir);
-void aroundMove(sf::Sprite* sprite , sf::Vector2f* dir);
-void flipX(sf::Sprite* sprite, float dirX);
-void updateBranch(Side* sprtie, int size);
+std::string path = "Resources/";
+std::string graphicsPath = path + "graphics/";
+std::string fontPath = path + "fonts/";
 
-float timer = 0.f;
 
-bool onClick = false;
-bool isPlaying = true;
-bool oneTime = false;
-bool onDownEnter = false;
+enum class SIDE { LEFT, RIGHT, NONE };
 
-int main()
-{
-    srand((int)time(0)); // 현재시간을 가져온다.
+void spriteInit(sf::Sprite& sprite, sf::Texture& texture, sf::Vector2f origin = { 0 , 0 }, sf::Vector2f position = { 0 , 0 });
+void moveObject(sf::Sprite& sprite, sf::Vector2f dir, float speed);
+bool checkOutOfWindow(sf::Sprite& sprite);
+void resetObject(sf::Sprite& sprite, sf::Vector2f& dir, float& speed);
+void setLeftStart(sf::Sprite& sprite, sf::Vector2f& dir, float& speed);
+void setRightStart(sf::Sprite& sprite, sf::Vector2f& dir, float& speed);
+void setDir(sf::Sprite& sprite, SIDE side);
+void setDir(sf::Sprite& sprite, sf::Vector2f& dir, SIDE side);
+void drawAllSprite(sf::RenderWindow& window, sf::Sprite* sprites, int size = 1, SIDE* side = nullptr);
+void updateBranch(SIDE* side, int size);
+bool isCollision(SIDE side1, SIDE side2);
+void textInit(sf::Text& text, sf::Font& font, int fontsize, std::string word = " ", sf::Vector2f origin = { 0,0 }, sf::Vector2f pos = { 0 , 0 });
+float deltaTime;
 
-    const std::string resourcePath = "Resources/";
-    const std::string graphicsPath = resourcePath + "graphics/";
-    const std::string fontPath = resourcePath + "fonts/";
-    const std::string soundPath = resourcePath + "sound/";
+int main() {
 
-    sf::RenderWindow window(sf::VideoMode(1920 , 1080), "Timber!"); // 화면에 뛰울 윈도우의 사이즈 / 제목
-    windowSize = { (sf::Vector2f)window.getSize() };
+	sf::RenderWindow window(sf::VideoMode(1920, 1080), "Timber Game!");
+	windowSize = { (float)window.getSize().x  , (float)window.getSize().y };
+	srand(time(0));
+
 
 #pragma region Texture
-    sf::Texture textureCloud;
-    sf::Texture textureBee;
-    sf::Texture textureTree;
-    sf::Texture textureBackGround;
-    sf::Texture texturePlayer;
-    sf::Texture textureBranch;
-    sf::Texture textureAxe;
-    sf::Texture textureLog;
+	sf::Texture textureBackGround;
+	sf::Texture textureCloud;
+	sf::Texture textureTree;
+	sf::Texture texturePlayer;
+	sf::Texture textureBranch;
+	sf::Texture textureAxe;
+	sf::Texture textureLog;
 
-    textureCloud.loadFromFile(graphicsPath + "cloud.png");
-    textureBee.loadFromFile(graphicsPath + "bee.png");
-    textureTree.loadFromFile(graphicsPath + "tree.png");
-    textureBackGround.loadFromFile(graphicsPath + "background.png");
-    texturePlayer.loadFromFile(graphicsPath + "player.png");
-    textureBranch.loadFromFile(graphicsPath + "branch.png");
-    textureAxe.loadFromFile(graphicsPath + "axe.png");
-    textureLog.loadFromFile(graphicsPath + "log.png");
+	textureBackGround.loadFromFile(graphicsPath + "background.png");
+	textureCloud.loadFromFile(graphicsPath + "cloud.png");
+	textureTree.loadFromFile(graphicsPath + "tree.png");
+	texturePlayer.loadFromFile(graphicsPath + "player.png");
+	textureBranch.loadFromFile(graphicsPath + "branch.png");
+	textureAxe.loadFromFile(graphicsPath + "axe.png");
+	textureLog.loadFromFile(graphicsPath + "log.png");
 #pragma endregion
-#pragma region SoundBuffer
-    sf::SoundBuffer bufferChop;
-    sf::SoundBuffer bufferDeath;
-    sf::SoundBuffer bufferOut_Of_Time;
 
-    bufferChop.loadFromFile(soundPath + "chop.wav");
-    bufferDeath.loadFromFile(soundPath + "death.wav");
-    bufferOut_Of_Time.loadFromFile(soundPath + "out_of_time.wav");
+#pragma region Fonts
+	sf::Font font;
+
+	font.loadFromFile(fontPath + "KOMIKAP_.ttf");
 #pragma endregion
-#pragma region Font
-    sf::Font font;
-    font.loadFromFile(fontPath + "KOMIKAP_.ttf");
+
+#pragma region Directions
+	sf::Vector2f dirCloud = { 1 , 0 };
+	sf::Vector2f dirLog = { 1,  -1 };
 #pragma endregion
-#pragma region Timer
-    sf::RectangleShape timerBar;
-    float timeBarWidth = 400;
-    float timeBarHeight = 80;
-    timerBar.setSize({ timeBarWidth , timeBarHeight });
-    timerBar.setFillColor(sf::Color::Red);
-    timerBar.setPosition(windowSize.x * 0.4, windowSize.y - 200.f);
-    float timerSpeed = timeBarWidth / 5;
-    float remaingTime = 5;
+
+#pragma region Rectangle
+	sf::RectangleShape timer;
+	
+	timer.setSize({ TIMTER_SIZE_WIDTH, TIMER_SIZE_HEIGHT});
+	timer.setFillColor(sf::Color::Red);
+	timer.setPosition({ windowSize.x / 2 - 250 , windowSize.y - 150 });
 #pragma endregion
+
+
+#pragma region Speeds
+	float speedCloud = 500;
+	float speedLog = 1000;
+#pragma endregion
+
+#pragma region Directions
+	SIDE sidePlayer = SIDE::LEFT;
+	SIDE sideBranch[6] = { SIDE::LEFT , SIDE::RIGHT ,SIDE::LEFT , SIDE::RIGHT , SIDE::NONE , SIDE::NONE };
+	SIDE sideAxe = SIDE::LEFT;
+	SIDE sideLog[NUM_LOGS] = { SIDE::NONE,SIDE::NONE,SIDE::NONE,SIDE::NONE,SIDE::NONE,SIDE::NONE,SIDE::NONE,SIDE::NONE,SIDE::NONE,SIDE::NONE };
+#pragma endregion
+
 #pragma region Sprite
-    sf::Sprite moveAbleSprites[5];
-    sf::Vector2f dir[5];
-    float speed[5];
-    for (int i = 0; i < sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]); i++) {
-        if (i < 3) {
-            moveAbleSprites[i].setTexture(textureCloud);
-            moveAbleSprites[i].setPosition(textureCloud.getSize().x / 2, textureCloud.getSize().y * i);
-            InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
-        }
-        else {
-            moveAbleSprites[i].setTexture(textureBee);
-            moveAbleSprites[i].setPosition({ 400.f , 800.f });
-            InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
-        }
-        //moveAbleSprites[i].setOrigin(textureCloud.getSize().x / 2, textureCloud.getSize().y / 2);
-    }
-    const int NUM_BRANCHES = 6;
+	sf::Sprite spriteBackGround;
+	sf::Sprite spriteCloud;
+	sf::Sprite spriteTree;
+	sf::Sprite spritePlayer;
+	sf::Sprite spriteBranch[NUM_BRANCHS];
+	sf::Sprite spriteAxe;
+	sf::Sprite spriteLog[NUM_LOGS];
 
-    sf::Sprite spriteBackGround;
-    sf::Sprite spriteBranch[NUM_BRANCHES];
-    sf::Sprite spriteTree;
-    sf::Sprite spriteAxe;
-    sf::Sprite spriteLog[50];
+	spriteInit(spriteBackGround, textureBackGround);
+	spriteInit(spriteCloud, textureCloud);
+	spriteInit(spriteTree, textureTree, { (float)(textureTree.getSize().x / 2) , 0.f }, { windowSize.x / 2 , .0f });
+	spriteInit(spritePlayer, texturePlayer, { -(float)(textureTree.getSize().x / 2) , 0.f }, { spriteTree.getPosition().x , 700.f });
+	for (int i = 0; i < NUM_BRANCHS; i++) {
+		spriteInit(spriteBranch[i], textureBranch, { -(float)(textureTree.getSize().x / 2) , 0.f }, { spriteTree.getPosition().x , i * 150.f });
+	}
+	spriteInit(spriteAxe, textureAxe, { -(float)(texturePlayer.getSize().x * 0.1f) , 0.f }, { spritePlayer.getPosition().x, spritePlayer.getPosition().y + 110.f });
+	for (int i = 0; i < NUM_LOGS; i++) {
+		spriteInit(spriteLog[i], textureLog, { (float)(textureLog.getSize().x / 2), (float)textureLog.getSize().y }, { windowSize.x / 2 , (float)textureTree.getSize().y });
+	}
 
-
-    spriteTree.setPosition(1920 * 0.5, 0);
-    spriteTree.setOrigin((int)textureTree.getSize().x / 2, 0.f);
-
-    for (int i = 0; i < NUM_BRANCHES; i++)
-    {
-        spriteBranch[i].setTexture(textureBranch);
-        spriteBranch[i].setOrigin(-(textureTree.getSize().x * 0.5), 0.f);
-        spriteBranch[i].setPosition(spriteTree.getPosition().x, i * 150.f);
-    }
-
-    sf::Sprite spritePlayer;
-    spriteBackGround.setTexture(textureBackGround);
-    spriteTree.setTexture(textureTree);
-    spritePlayer.setTexture(texturePlayer);
-    spriteAxe.setTexture(textureAxe);
-
-    sf::Vector2u;
-    spritePlayer.setOrigin(-(int)textureTree.getSize().x / 2, 0);
-    spritePlayer.setPosition(spriteTree.getPosition().x, 700.f);
-    Side palyerSide = Side::LEFT;
-
-    spriteAxe.setOrigin(-((int)texturePlayer.getSize().x * 0.2), 0.f);
-    spriteAxe.setPosition(spritePlayer.getPosition().x, spritePlayer.getPosition().y + 110.f);
-    Side axeSide = Side::LEFT;
-
-
-    const int NUM_LOGS = 50;
-    sf::Vector2f gravity = { 0.f , 1000.f };
-    float speedLog = 500.f;
-    bool isActiveLog[NUM_LOGS] = { };
-    sf::Vector2f dirLog[NUM_LOGS] = { };
-    sf::Vector2f velocityLog[NUM_LOGS] = {};
-
-    for (int i = 0; i < NUM_LOGS; i++) {
-        spriteLog[i].setTexture(textureLog);
-        spriteLog[i].setOrigin(textureLog.getSize().x / 2, textureLog.getSize().y);
-        spriteLog[i].setPosition(spriteTree.getPosition().x, textureTree.getSize().y);
-    }
-    
-    sf::Vector2f initLogPosition = spriteLog[0].getPosition();
-
-    //가속도 운동
-
-    Side sideLog;
 #pragma endregion
-
 
 #pragma region Text
-    //UI
-    sf::Text textScore;
-    textScore.setFont(font);
-    textScore.setString("SCORE : 0");
-    textScore.setCharacterSize(100); // 세로 기준
-    textScore.setFillColor(sf::Color::White);
-    textScore.setPosition(20, 20);
+	sf::Text textScore;
 
-    sf::Text textGameStatus;
-    textGameStatus.setFont(font);
-    textGameStatus.setCharacterSize(50);
-    textGameStatus.setFillColor(sf::Color::Red);
-    textGameStatus.setPosition(windowSize.x / 2, windowSize.y / 2);
-    textGameStatus.setOrigin(textGameStatus.getLocalBounds().width / 2, textGameStatus.getLocalBounds().height / 2);
+	textInit(textScore, font, 100, "SCORE = 0", { 0,0 }, { 20, 20 });
 #pragma endregion
-#pragma region Sound
-    //Sound
-    sf::Sound soundChop;
-    sf::Sound soundDeath;
-    sf::Sound soundOutOfTime;
 
-    soundChop.setBuffer(bufferChop);
-    soundDeath.setBuffer(bufferDeath);
-    soundOutOfTime.setBuffer(bufferOut_Of_Time);
-#pragma endregion    
-    //SCORE 변수
-    int score = 0;
-
-    sf::Event event;
-    sf::Clock clock;
-    
-    GAMESTATUS status = GAMESTATUS::START;
-    Side sideBranch[NUM_BRANCHES] = { Side::LEFT,Side::RIGHT,Side::NONE,Side::RIGHT,Side::LEFT,Side::NONE};
-    while (window.isOpen())
-    {   
-        sf::Time time = clock.restart();
-        float deltaTime = time.asSeconds();
-        timer += deltaTime;
-        // 메세지 루프 -> 큐에담긴 메세지가 존재하면 while 문은 true
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed) {
-                window.close();
-            }
-            
-            if (!isPlaying) {
-                if (event.KeyPressed == event.type && !onClick && (event.key.code == sf::Keyboard::Left || event.key.code == sf::Keyboard::Right)) {
-                    soundChop.play();
-                    int idx = 0;
-                    for (int i = 0; i < NUM_LOGS; i++) {
-                        if (!isActiveLog[i]) {
-                            idx = i;
-                            isActiveLog[i] = true;
-                            break;
-                        }
-                    }
-            
-                    if (event.key.code == sf::Keyboard::Left) {
-                        spriteLog[idx].setPosition(initLogPosition);
-                        dirLog[idx] = { 1, -1 };
-                        velocityLog[idx] = dirLog[idx] * speedLog;
-
-                        palyerSide = Side::LEFT;
-                        axeSide = Side::LEFT;
-                        sideLog = Side::LEFT;
-                        updateBranch(sideBranch, NUM_BRANCHES);
-                    }
-                    else if (event.key.code == sf::Keyboard::Right) {
-                        spriteLog[idx].setPosition(initLogPosition);
-                        dirLog[idx] = { -1, -1 };
-                        velocityLog[idx] = dirLog[idx] * speedLog;
-
-                        palyerSide = Side::RIGHT;
-                        axeSide = Side::RIGHT;
-                        sideLog = Side::RIGHT;
-                        updateBranch(sideBranch, NUM_BRANCHES);
-                    }
-                    if (palyerSide == sideBranch[NUM_BRANCHES - 1]) {
-                        score = 0;
-                        printf("아야\n");
-                        isPlaying = true;
-                        soundDeath.play();
-                        status = GAMESTATUS::RESTART;
-                    }
-                    else {
-                        score += 10;
-                    }
-                    
-                    
-                    textScore.setString("SCORE: " + std::to_string(score));
-                    onClick = true;
-                }
-                else if (event.KeyReleased == event.type) {
-                    onClick = false;
-                }
-
-            }
-            
-            if (event.key.code == sf::Keyboard::Enter && !onDownEnter ) {
-                if (!isPlaying) {
-                    status = GAMESTATUS::RESUME;
-                }
-                
-                isPlaying = !isPlaying;
-                oneTime = false;
-                if (status != GAMESTATUS::RESUME) {
-                    remaingTime = 5;
-                    timerBar.setSize({ timeBarWidth, timerBar.getSize().y });
-                }
-                if (status == GAMESTATUS::RESTART) {
-                    updateBranch(sideBranch, NUM_BRANCHES);
-                }
-                onDownEnter = true;
-            }
-            if (event.type == sf::Event::KeyReleased && event.key.code == sf::Keyboard::Enter) onDownEnter = false;
-        }
-        if (isPlaying) {
-            if (status == GAMESTATUS::START) {
-                textGameStatus.setString("Press Enter to start!");
-            }
-            else if (status == GAMESTATUS::RESUME) {
-                textGameStatus.setString("Press Enter to resume!");
-            }
-            else if (status == GAMESTATUS::RESTART) {
-                textGameStatus.setString("Press Enter to restart!");
-            }
-            textGameStatus.setOrigin(textGameStatus.getLocalBounds().width / 2, textGameStatus.getLocalBounds().height / 2);
-        }
+	sf::Event event;
+	sf::Clock clock;
+	bool isDownKey = false;
+	bool stopGame = false;
+	bool hit = false;
+	bool isActive[NUM_LOGS] = { false , false , false , false , false , false , false , false , false , false };
+	int score = 0;
+	int idx = 0;
+	float setTimer = 5.f;
+	sf::Vector2f gravity = { 0.f , 5000.f };
+	sf::Vector2f velocity[NUM_LOGS] = { dirLog * speedLog , dirLog * speedLog , dirLog * speedLog , dirLog * speedLog  , dirLog * speedLog  , dirLog * speedLog  , dirLog * speedLog  , dirLog * speedLog  ,dirLog * speedLog  ,dirLog * speedLog };
+	sf::Vector2f initPostionLog = spriteLog[0].getPosition();
 
 
+	while (window.isOpen()) {
+		sf::Time time = clock.restart();
+		deltaTime = time.asSeconds();
+		
+		while (window.pollEvent(event)) {
+			if (event.type == sf::Event::Closed) {
+				window.close();
+			}
+			if (setTimer <= 0) {
+				stopGame = true;
+			}
+			if (event.key.code == sf::Keyboard::Enter) {
+				stopGame = false;
+				hit = false;
+				setTimer = 5;
+				textScore.setString("SCORE = " + std::to_string(score));
+			}
+			if (stopGame) continue;
 
-        //Update
-        if (!isPlaying || !oneTime) {
-            sf::Vector2f timerBarSize = timerBar.getSize();
-            remaingTime -= deltaTime;
-            timerBarSize.x -= timerSpeed * deltaTime;
-            timerBar.setSize(timerBarSize);
-            if (remaingTime <= 0) {
-                isPlaying = true;
-                status = GAMESTATUS::RESTART;
-                score = 0;
-                textScore.setString("SCORE: " + std::to_string(score));
-                soundOutOfTime.play();
-            }
-        
+			if ((event.key.code == sf::Keyboard::Left || event.key.code == sf::Keyboard::Right) && !isDownKey)
+			{
 
-            for (int i = 0; i < sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]); i++) {
-                sf::Vector2f pos = moveAbleSprites[i].getPosition() + dir[i] * speed[i] * deltaTime;
-                moveAbleSprites[i].setPosition(pos);
-                if (checkOutofWindow(&moveAbleSprites[i]) && i != sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1) {
-                    InitSprite(&moveAbleSprites[i], &dir[i], &speed[i]);
-                }
+				for (int i = 0; i < NUM_LOGS; i++) {
+					if (!isActive[i]) {
+						idx = i;
+						isActive[i] = true;
+						break;
+					}
+				}
 
-                if (i == sizeof(moveAbleSprites) / sizeof(moveAbleSprites[0]) - 1) {
-                    if (timer >= 2) {
-                        aroundMove(&moveAbleSprites[i], &dir[i]);
-                        timer = 0;
-                    }
-                    else if (checkOutofWindow(&moveAbleSprites[i])) {
-                        dir[i].x = -(dir[i].x);
-                        dir[i].y = -(dir[i].y);
-                        flipX(&moveAbleSprites[i], dir[i].x);
-                    }
-                }
-            }
+				if (event.key.code == sf::Keyboard::Left) {
+					sidePlayer = SIDE::LEFT;
+					sideAxe = SIDE::LEFT;
+					sideLog[idx] = SIDE::LEFT;
+					dirLog = { 1 , -1 };
+				}
+				else if (event.key.code == sf::Keyboard::Right) {
+					sidePlayer = SIDE::RIGHT;
+					sideAxe = SIDE::RIGHT;
+					sideLog[idx] = SIDE::RIGHT;
+					dirLog = { -1 , -1 };
+				}
 
-            for (int i = 0; i < NUM_BRANCHES; i++) {
-                
-                switch (sideBranch[i]) {
-                    case Side::LEFT:
-                        spriteBranch[i].setScale({ -1,1 });
-                        break;
-                    case Side::RIGHT:
-                        spriteBranch[i].setScale({ 1,1 });
-                        break;
-                }
-            }
+				velocity[idx] = dirLog * speedLog;
+				printf("%f\n", velocity[idx].x);
+				spriteLog[idx].setPosition(initPostionLog);
 
-            switch (palyerSide) {
-                case Side::LEFT:
-                    spritePlayer.setScale({ -1 , 1 });
-                    break;
-                case Side::RIGHT:
-                    spritePlayer.setScale({ 1 , 1 });
-                    break;
-            }
-            switch (axeSide) {
-                case Side::LEFT:
-                    spriteAxe.setScale({ -1 , 1 });
-                    break;
-                case Side::RIGHT:
-                    spriteAxe.setScale({ 1 , 1 });
-                    break;
-            }
-            for (int i = 0; i < NUM_LOGS; i++) {
-                if (isActiveLog[i]) {
-                    sf::Vector2f pos = spriteLog[i].getPosition();
-                    velocityLog[i] += gravity * deltaTime;
-                    pos += velocityLog[i] * deltaTime;
-                    spriteLog[i].setPosition(pos);
+				updateBranch(sideBranch, NUM_BRANCHS);
+				if (isCollision(sidePlayer, sideBranch[NUM_BRANCHS - 1])) {
+					stopGame = true;
+					score = 0;
+				}
+				else {
+					score += 10;
+					textScore.setString("SCORE = " + std::to_string(score));
+				}
+				isDownKey = true;
+				hit = true;
 
-                    if (checkOutofWindow(&spriteLog[i])) isActiveLog[i] = false;
-                }
-
-            }
-            if (isPlaying) oneTime = true;
-        }
+				
+			}
+			if (event.type == sf::Event::KeyReleased) {
+				isDownKey = false;
+			}
+		}
 
 
+		if (!stopGame) {
+			moveObject(spriteCloud, dirCloud, speedCloud);
+			if (checkOutOfWindow(spriteCloud)) {
+				resetObject(spriteCloud, dirCloud, speedCloud);
+			}
 
-        //Draw
-        window.clear();
-       
+			for (int i = 0; i < NUM_LOGS; i++) {
+				if (isActive[i]) {
+					sf::Vector2f pos = spriteLog[i].getPosition();
+					velocity[i] += gravity * deltaTime;
+					pos += velocity[i] * deltaTime;
+					spriteLog[i].setPosition(pos);
+					if (checkOutOfWindow(spriteLog[i])) isActive[i] = false;
+				}
+				else {
+					sideLog[i] = SIDE::NONE;
+				}
+			}
 
-        //World
-        window.draw(spriteBackGround);
-        
-        
-        window.draw(spriteTree);
+			setTimer -= deltaTime;
+			if (setTimer <= 0) setTimer = 0;
+			timer.setSize({ (float)TIMTER_SIZE_WIDTH * (setTimer / 5.f) , timer.getSize().y });
+			
+		}
 
-        for (int i = 0; i < NUM_LOGS; i++) {
-            if(isActiveLog[i]) window.draw(spriteLog[i]);
-        }
-        
-        for (int i = 0; i < NUM_BRANCHES; i++) {
-            if(sideBranch[i] != Side::NONE) window.draw(spriteBranch[i]);
-        }
 
-        window.draw(spritePlayer);
-        if (onClick) {
-            window.draw(spriteAxe);
-        }
-        
-        for (sf::Sprite sp : moveAbleSprites) {
-            window.draw(sp);
-        }
-        
+		//setDir(spritePlayer, sidePlayer);
 
-        //UI
-        window.draw(textScore);
-        window.draw(timerBar);
+		window.clear();
+		window.draw(spriteBackGround);
+		window.draw(spriteCloud);
+		window.draw(spriteTree);
+		drawAllSprite(window, &spritePlayer, 1, &sidePlayer);
+		drawAllSprite(window, spriteBranch, NUM_BRANCHS, sideBranch);
+		if (isDownKey) drawAllSprite(window, &spriteAxe, 1, &sideAxe);
+		drawAllSprite(window, spriteLog, NUM_LOGS, sideLog);
+		window.draw(textScore);
+		window.draw(timer);
+		window.display();
 
-        if(isPlaying) window.draw(textGameStatus);
-       // window.draw(spriteBee);
-        window.display();
-    }
 
-    return 0;
+	}
+	return 0;
 }
+	
+
+	void spriteInit(sf::Sprite & sprite, sf::Texture & texture, sf::Vector2f origin, sf::Vector2f position) {
+		sprite.setTexture(texture);
+		sprite.setPosition(position);
+		sprite.setOrigin(origin);
+	}
+
+	void moveObject(sf::Sprite & sprite, sf::Vector2f dir, float speed) {
+		sf::Vector2f pos = sprite.getPosition();
+		pos += dir * speed * deltaTime;
+		sprite.setPosition(pos);
+	}
 
 
-bool checkOutofWindow(sf::Sprite* sprite) {
-    if (sprite->getPosition().x >= windowSize.x + 100.f || sprite->getPosition().x < 0 - 100.f) {
-        return true;
-    }
-    if (sprite->getPosition().y >= windowSize.y || sprite->getPosition().y < 0) {
-        return true;
-    }
-    return false;
-}
-void InitSprite(sf::Sprite* sprite, sf::Vector2f* dir , float* speed) {
-    float random = (float)rand() / RAND_MAX;
-    if (random > 0.5f)
-    {
-        spriteLeftStart(sprite, dir);
-        sprite->setScale({ -1.f , 1.f });
-    }
-    else
-    {
-        spriteRightStart(sprite, dir);
-        sprite->setScale({ 1.f , 1.f });
-    }
-    *speed = (float)(rand() % 500 + 100);
-}
-void spriteLeftStart(sf::Sprite* sprite, sf::Vector2f* dir) {
-    sprite->setPosition(-50, sprite->getPosition().y);
-    *dir = { 1.f , 0.f };
-}
 
-void spriteRightStart(sf::Sprite* sprite, sf::Vector2f* dir) {
-    sprite->setPosition(windowSize.x + 50, sprite->getPosition().y);
-    *dir = { -1.f , 0.f };
-}
+	void setDir(sf::Sprite & sprite, sf::Vector2f & dir, SIDE side) {
+		if (side == SIDE::LEFT) {
+			sprite.setScale({ -1 , 1 });
+			dir = { -1 , dir.y };
+		}
+		else if (side == SIDE::RIGHT) {
+			sprite.setScale({ 1 , 1 });
+			dir = { 1 , dir.y };
+		}
+	}
 
-void flipX(sf::Sprite* sprite, float dirX) {
-    if (dirX > 0) {
-        sprite->setScale({-1 , 1});
-    }
-    else {
-        sprite->setScale({ 1 , 1 });
-    }
-}
+	void drawAllSprite(sf::RenderWindow & window, sf::Sprite * sprites, int size, SIDE * side)
+	{
+		for (int i = 0; i < size; i++) {
+			setDir(sprites[i], side[i]);
+			if (side == nullptr || side[i] != SIDE::NONE) {
+				window.draw(sprites[i]);
+			}
 
-void updateBranch(Side* side, int size)
-{
-    for (int i = size - 1; i >= 0; i--) {
-        side[i] = side[i - 1];
-    }
+		}
+	}
 
-    int r = rand() % 3;
-    if (r == 0) side[0] = Side::LEFT;
-    else if (r == 1) side[0] = Side::RIGHT;
-    else if (r == 2) side[0] = Side::NONE;
-}
+	void updateBranch(SIDE * sides, int size)
+	{
+		for (int i = size - 1; i >= 0; i--) {
+			sides[i] = sides[i - 1];
+		}
+		int random = rand() % 3;
+		if (random == 0) sides[0] = SIDE::LEFT;
+		else if (random == 1) sides[0] = SIDE::RIGHT;
+		else if (random == 2) sides[0] = SIDE::NONE;
 
-void aroundMove(sf::Sprite* sprite , sf::Vector2f* dir) {
-    if (checkOutofWindow(sprite)) return;
+	}
 
-    printf("%f\n", rand() / (RAND_MAX * 0.5f) - 1);
-    dir->x = rand() / (RAND_MAX * 0.5f) - 1;
-    dir->y = rand() / (RAND_MAX * 0.5f) - 1;
-    
-    flipX(sprite, dir->x);
-}
+	bool isCollision(SIDE side1, SIDE side2)
+	{
+		if (side1 == side2) {
+			return true;
+		}
+		return false;
+	}
+
+	void textInit(sf::Text & text, sf::Font & font, int fontsize, std::string word, sf::Vector2f origin, sf::Vector2f pos)
+	{
+		text.setFont(font);
+		text.setCharacterSize(fontsize);
+		text.setString(word);
+		text.setOrigin(origin);
+		text.setPosition(pos);
+	}
+
+	void setDir(sf::Sprite & sprite, SIDE side) {
+		if (side == SIDE::LEFT) {
+			sprite.setScale({ -1 , 1 });
+
+		}
+		else if (side == SIDE::RIGHT) {
+			sprite.setScale({ 1 , 1 });
+		}
+	}
+
+	void resetObject(sf::Sprite & sprite, sf::Vector2f & dir, float& speed) {
+		int random = rand() % 2;
+
+		if (random == 0) {
+			setLeftStart(sprite, dir, speed);
+			setDir(sprite, dir, SIDE::RIGHT);
+		}
+		else {
+			setRightStart(sprite, dir, speed);
+			setDir(sprite, dir, SIDE::LEFT);
+		}
+	}
+
+	void setLeftStart(sf::Sprite & sprite, sf::Vector2f & dir, float& speed) {
+		sprite.setPosition(-100, sprite.getPosition().y);
+	}
+
+	void setRightStart(sf::Sprite & sprite, sf::Vector2f & dir, float& speed) {
+		sprite.setPosition(windowSize.x + 100, sprite.getPosition().y);
+	}
+
+	bool checkOutOfWindow(sf::Sprite & sprite) {
+		if (sprite.getPosition().x < -150 || sprite.getPosition().x > windowSize.x + 150 || sprite.getPosition().y < -150 || sprite.getPosition().y > windowSize.y + 150) {
+			return true;
+		}
+
+		return false;
+	}
+
+
+
